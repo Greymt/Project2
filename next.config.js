@@ -31,7 +31,7 @@ module.exports = async (phase) => {
     typescript: {
       ignoreBuildErrors: true
     },
-    swcMinify: true,
+    swcMinify: false,
     poweredByHeader: false,
     trailingSlash: true,
     distDir: ".next"

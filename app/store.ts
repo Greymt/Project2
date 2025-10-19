@@ -1,8 +1,12 @@
 import { configureStore, combineReducers } from "@reduxjs/toolkit";
 import { createWrapper } from "next-redux-wrapper";
+import authReducer from "./slices/authSlice";
+import quizReducer from "./slices/quizSlice";
 
 export const store = configureStore({
   reducer: combineReducers({
+    auth: authReducer,
+    quiz: quizReducer,
   }),
   devTools: process.env.NODE_ENV !== "production",
   middleware: (gDM) => gDM({ serializableCheck: false })
