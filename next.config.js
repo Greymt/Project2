@@ -16,6 +16,16 @@ module.exports = async (phase) => {
           ignoreOrder: true
         }));
       }
+
+      // Handle Node.js modules
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        dns: false,
+        net: false,
+        tls: false,
+        fs: false,
+      };
+
       config.module.rules.push(
         {
           test: /\.(sa|sc|c)ss$/,

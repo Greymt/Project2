@@ -2,28 +2,9 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { ApiResponse } from '../../../types/api';
 import { AuthResponse, LoginRequest } from '../../../types/user';
 import { validateLoginForm } from '../../../utils/validation';
-
-// Mock database - In production, use real database
-const users: any[] = [
-  {
-    id: 'user1',
-    email: 'user@example.com',
-    password: 'Password123', // In production, this should be hashed
-    fullName: 'Test User',
-    role: 'user',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'admin1',
-    email: 'admin@example.com',
-    password: 'Admin123', // In production, this should be hashed
-    fullName: 'Admin User',
-    role: 'admin',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+import { connectToDatabase } from '../../../utils/mongodb';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
 export default async function handler(
   req: NextApiRequest,
@@ -49,8 +30,10 @@ export default async function handler(
       });
     }
 
-    // Find user
-    const user = users.find((u) => u.email === email);
+    // Connect to MongoDB and find user
+    const { db } = await connectToDatabase();
+    const user = await db.collection('users').findOne({ email });
+
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -58,27 +41,45 @@ export default async function handler(
       });
     }
 
-    // Check password (in production, use bcrypt)
-    if (user.password !== password) {
+    // Check password using bcrypt (expects stored password to be hashed)
+    if (!user.password) {
       return res.status(401).json({
         success: false,
         error: 'Invalid email or password',
       });
     }
 
-    // Generate mock token
-    const token = Buffer.from(JSON.stringify({ userId: user.id, email })).toString('base64');
+    const passwordMatches = await bcrypt.compare(password, user.password);
+    if (!passwordMatches) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid email or password',
+      });
+    }
+
+    // Sign JWT
+    const jwtSecret = process.env.NEXT_PUBLIC_JWT_SECRET;
+    if (!jwtSecret) {
+      console.error('JWT_SECRET is not defined');
+      return res.status(500).json({ success: false, error: 'Server configuration error' });
+    }
+
+    const token = jwt.sign(
+      { userId: user._id?.toString() ?? null, email },
+      jwtSecret,
+      { expiresIn: '7d' }
+    );
 
     return res.status(200).json({
       success: true,
       data: {
         user: {
-          id: user.id,
+          id: user._id?.toString() ?? null,
           email: user.email,
           fullName: user.fullName,
           role: user.role,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
+          createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : undefined,
+          updatedAt: user.updatedAt ? new Date(user.updatedAt).toISOString() : undefined,
         },
         token,
       },

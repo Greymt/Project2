@@ -75,7 +75,7 @@ const QuizPlayer: React.FC<{ quizId: string }> = ({ quizId }) => {
 
     setIsSubmitting(true);
     try {
-      const response = await apiPost('/api/quiz/submit', {
+      const response = await apiPost<{ id: string }>('/api/quiz/submit', {
         quizId: quiz.id,
         answers: userAnswers,
         timeSpent: quiz.duration * 60 - timeRemaining,

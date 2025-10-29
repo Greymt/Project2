@@ -1,46 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { ApiResponse } from '../../../types/api';
 import { Quiz, Question } from '../../../types/quiz';
-
-// Mock database
-const quizzes: Quiz[] = [
-  {
-    id: 'quiz1',
-    title: 'TOEIC - Part 1: Photographs',
-    description: 'Luyện thi TOEIC phần 1 - Nhìn hình và trả lời câu hỏi',
-    topicId: 'topic1',
-    duration: 15,
-    passingScore: 70,
-    createdAt: new Date().toISOString(),
-  },
-];
-
-const questions: Question[] = [
-  {
-    id: 'q1',
-    topicId: 'topic1',
-    question: 'What is the man doing?',
-    optionA: 'He is reading a book',
-    optionB: 'He is writing on the board',
-    optionC: 'He is sitting at a desk',
-    optionD: 'He is standing by the window',
-    correctAnswer: 'B',
-    explanation: 'The image shows a man writing on the board.',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'q2',
-    topicId: 'topic1',
-    question: 'Where are the people?',
-    optionA: 'In a classroom',
-    optionB: 'In a library',
-    optionC: 'In an office',
-    optionD: 'In a restaurant',
-    correctAnswer: 'A',
-    explanation: 'The setting appears to be a classroom with a board.',
-    createdAt: new Date().toISOString(),
-  },
-];
+import { connectToDatabase } from '../../../utils/mongodb';
 
 export default async function handler(
   req: NextApiRequest,
@@ -55,25 +16,37 @@ export default async function handler(
 
   try {
     const { id } = req.query;
-
-    const quiz = quizzes.find((q) => q.id === id);
+    const { db } = await connectToDatabase();
+    const quiz = await db.collection('quizzes').findOne({ id: id as string });
     if (!quiz) {
-      return res.status(404).json({
-        success: false,
-        error: 'Quiz not found',
-      });
+      return res.status(404).json({ success: false, error: 'Quiz not found' });
     }
 
-    // Get questions for this quiz
-    const quizQuestions = questions.filter((q) => q.topicId === quiz.topicId);
+    const quizQuestions = await db.collection('questions').find({ topicId: quiz.topicId }).toArray();
+    const questionsMapped = quizQuestions.map((d: any) => ({
+      id: d.id ?? d._id?.toString(),
+      topicId: d.topicId,
+      question: d.question,
+      optionA: d.optionA,
+      optionB: d.optionB,
+      optionC: d.optionC,
+      optionD: d.optionD,
+      correctAnswer: d.correctAnswer,
+      explanation: d.explanation,
+      createdAt: d.createdAt,
+    }));
+    const mappedQuiz: Quiz = {
+      id: quiz.id ?? quiz._id?.toString(),
+      title: quiz.title,
+      description: quiz.description,
+      topicId: quiz.topicId,
+      duration: quiz.duration,
+      passingScore: quiz.passingScore,
+      createdAt: quiz.createdAt,
+      questions: questionsMapped,
+    };
 
-    return res.status(200).json({
-      success: true,
-      data: {
-        ...quiz,
-        questions: quizQuestions,
-      },
-    });
+    return res.status(200).json({ success: true, data: mappedQuiz });
   } catch (error) {
     console.error('Get quiz error:', error);
     return res.status(500).json({

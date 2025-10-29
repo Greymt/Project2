@@ -1,3 +1,36 @@
+import { NextApiRequest } from 'next';
+import jwt from 'jsonwebtoken';
+import { connectToDatabase } from './mongodb';
+import { ObjectId } from 'mongodb';
+
+export async function getUserFromRequest(req: NextApiRequest) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+
+  const token = authHeader.substring(7);
+  const jwtSecret = process.env.NEXT_PUBLIC_JWT_SECRET;
+  if (!jwtSecret) return null;
+
+  try {
+    const decoded = jwt.verify(token, jwtSecret) as { userId?: string; email?: string };
+    if (!decoded || !decoded.userId) return null;
+
+    const { db } = await connectToDatabase();
+    // try to find by string id field first, then by ObjectId
+    let user = await db.collection('users').findOne({ id: decoded.userId });
+    if (!user) {
+      try {
+        user = await db.collection('users').findOne({ _id: new ObjectId(decoded.userId) });
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    return user ?? null;
+  } catch (e) {
+    return null;
+  }
+}
 import { User } from '../types/user';
 
 const TOKEN_KEY = 'auth_token';
@@ -51,8 +84,8 @@ export const isAuthenticated = (): boolean => {
   return getAuthToken() !== null;
 };
 
-export const isAdmin = (): boolean => {
-  const user = getAuthUser();
+export const isAdmin = (userParam?: User | null): boolean => {
+  const user = userParam ?? getAuthUser();
   return user?.role === 'admin';
 };
 

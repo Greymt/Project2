@@ -1,6 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { ApiResponse } from '../../../types/api';
 import { SystemStats } from '../../../types/api';
+import { getUserFromRequest } from '../../../utils/auth';
+import { connectToDatabase } from '../../../utils/mongodb';
 
 export default async function handler(
   req: NextApiRequest,
@@ -14,32 +16,35 @@ export default async function handler(
   }
 
   try {
-    // Get token from header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized',
-      });
-    }
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(401).json({ success: false, error: 'Unauthorized' });
+    if (user.role !== 'admin') return res.status(403).json({ success: false, error: 'Forbidden' });
 
-    // Mock stats data
+    const { db } = await connectToDatabase();
+    const totalUsers = await db.collection('users').countDocuments();
+    const totalQuizzes = await db.collection('quizzes').countDocuments();
+    const totalQuestions = await db.collection('questions').countDocuments();
+    const totalResults = await db.collection('results').countDocuments();
+    const topicsCount = await db.collection('topics').countDocuments();
+
+    const avgRes = await db.collection('results').aggregate([
+      { $group: { _id: null, avg: { $avg: '$score' } } }
+    ]).toArray();
+    const averageScore = avgRes[0]?.avg ?? 0;
+
     const stats: SystemStats = {
-      totalUsers: 1250,
-      totalQuizzes: 45,
-      totalQuestions: 1200,
-      totalResults: 5680,
-      averageScore: 72.5,
-      topicsCount: 12,
-      activeUsersToday: 145,
-      activeUsersThisWeek: 890,
-      activeUsersThisMonth: 3450,
+      totalUsers,
+      totalQuizzes,
+      totalQuestions,
+      totalResults,
+      averageScore,
+      topicsCount,
+      activeUsersToday: 0,
+      activeUsersThisWeek: 0,
+      activeUsersThisMonth: 0,
     };
 
-    return res.status(200).json({
-      success: true,
-      data: stats,
-    });
+    return res.status(200).json({ success: true, data: stats });
   } catch (error) {
     console.error('Get stats error:', error);
     return res.status(500).json({

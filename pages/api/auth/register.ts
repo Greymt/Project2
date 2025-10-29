@@ -2,9 +2,9 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { ApiResponse } from '../../../types/api';
 import { AuthResponse, RegisterRequest } from '../../../types/user';
 import { validateRegisterForm } from '../../../utils/validation';
-
-// Mock database - In production, use real database
-const users: any[] = [];
+import { connectToDatabase } from '../../../utils/mongodb';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
 export default async function handler(
   req: NextApiRequest,
@@ -30,8 +30,9 @@ export default async function handler(
       });
     }
 
-    // Check if user already exists
-    const existingUser = users.find((u) => u.email === email);
+    // Check if user already exists in DB
+    const { db } = await connectToDatabase();
+    const existingUser = await db.collection('users').findOne({ email });
     if (existingUser) {
       return res.status(409).json({
         success: false,
@@ -39,32 +40,40 @@ export default async function handler(
       });
     }
 
-    // Create new user (mock)
-    const newUser = {
-      id: Math.random().toString(36).substr(2, 9),
+    // Hash password
+    const hashed = await bcrypt.hash(password, 10);
+
+    const now = new Date().toISOString();
+    const insertRes = await db.collection('users').insertOne({
       email,
-      password, // In production, hash the password
+      password: hashed,
       fullName,
       role: 'user',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+      createdAt: now,
+      updatedAt: now,
+    });
 
-    users.push(newUser);
+    const userId = insertRes.insertedId?.toString() ?? null;
 
-    // Generate mock token
-    const token = Buffer.from(JSON.stringify({ userId: newUser.id, email })).toString('base64');
+    // Sign JWT
+    const jwtSecret = process.env.NEXT_PUBLIC_JWT_SECRET;
+    if (!jwtSecret) {
+      console.error('JWT_SECRET is not defined');
+      return res.status(500).json({ success: false, error: 'Server configuration error' });
+    }
+
+    const token = jwt.sign({ userId, email }, jwtSecret, { expiresIn: '7d' });
 
     return res.status(201).json({
       success: true,
       data: {
         user: {
-          id: newUser.id,
-          email: newUser.email,
-          fullName: newUser.fullName,
-          role: newUser.role,
-          createdAt: newUser.createdAt,
-          updatedAt: newUser.updatedAt,
+          id: userId,
+          email,
+          fullName,
+          role: 'user',
+          createdAt: now,
+          updatedAt: now,
         },
         token,
       },

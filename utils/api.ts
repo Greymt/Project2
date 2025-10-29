@@ -1,7 +1,7 @@
 import { ApiResponse } from '../types/api';
 import { getAuthHeader } from './auth';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+const API_BASE_URL = process.env.NEXT_PUBLIC_ENDPOINT || 'http://localhost:3002';
 
 export const apiCall = async <T>(
   endpoint: string,

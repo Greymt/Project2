@@ -13,25 +13,34 @@ import {
 } from '@mui/material';
 import Link from 'next/link';
 import { apiGet } from '../../utils/api';
-import { Quiz } from '../../types/quiz';
+import { Quiz, QuizResult } from '../../types/quiz';
 import { PaginatedResponse } from '../../types/api';
 
 const QuizList: React.FC = () => {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [quizResults, setQuizResults] = useState<Record<string, QuizResult>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchQuizzes = async () => {
+    const fetchData = async () => {
       try {
         setIsLoading(true);
-        const response = await apiGet<PaginatedResponse<Quiz>>('/api/quiz');
-        console.log('Response:', response);
 
-        if (response.success && response.data) {
-          setQuizzes(response.data.data);
+        // Fetch quizzes and results in parallel
+        const [quizResponse, resultsResponse] = await Promise.all([
+          apiGet<PaginatedResponse<Quiz>>('/api/quiz'),
+          apiGet<Record<string, QuizResult>>('/api/quiz/results/user')
+        ]);
+
+        if (quizResponse.success && quizResponse.data) {
+          setQuizzes(quizResponse.data.data);
         } else {
-          setError(response.error || 'Không thể tải danh sách bài thi');
+          setError(quizResponse.error || 'Không thể tải danh sách bài thi');
+        }
+
+        if (resultsResponse.success && resultsResponse.data) {
+          setQuizResults(resultsResponse.data);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Có lỗi xảy ra');
@@ -40,7 +49,7 @@ const QuizList: React.FC = () => {
       }
     };
 
-    fetchQuizzes();
+    fetchData();
   }, []);
 
   if (isLoading) {
@@ -80,12 +89,32 @@ const QuizList: React.FC = () => {
                     <strong>Điểm đạt:</strong> {quiz.passingScore}%
                   </Typography>
                 </CardContent>
-                <CardActions>
-                  <Link href={`/quiz/${quiz.id}`} passHref>
-                    <Button component="a" size="small" variant="contained">
-                      Làm Bài Thi
-                    </Button>
-                  </Link>
+                <CardActions sx={{ flexDirection: 'column', alignItems: 'stretch', gap: 1 }}>
+                  {quizResults[quiz.id] ? (
+                    <>
+                      <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body2" color={quizResults[quiz.id].score >= quiz.passingScore ? "success.main" : "error.main"}>
+                          Điểm: {quizResults[quiz.id].score}%
+                        </Typography>
+                        <Link href={`/quiz/results/${quizResults[quiz.id].id}`} passHref>
+                          <Button component="a" size="small">
+                            Xem Chi Tiết
+                          </Button>
+                        </Link>
+                      </Box>
+                      <Link href={`/quiz/${quiz.id}`} passHref>
+                        <Button component="a" size="small" variant="outlined" fullWidth>
+                          Làm Lại
+                        </Button>
+                      </Link>
+                    </>
+                  ) : (
+                    <Link href={`/quiz/${quiz.id}`} passHref>
+                      <Button component="a" size="small" variant="contained" fullWidth>
+                        Làm Bài Thi
+                      </Button>
+                    </Link>
+                  )}
                 </CardActions>
               </Card>
             </Grid>

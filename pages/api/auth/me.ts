@@ -1,26 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { ApiResponse } from '../../../types/api';
 import { User } from '../../../types/user';
-
-// Mock database
-const users: any[] = [
-  {
-    id: 'user1',
-    email: 'user@example.com',
-    fullName: 'Test User',
-    role: 'user',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'admin1',
-    email: 'admin@example.com',
-    fullName: 'Admin User',
-    role: 'admin',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+import { connectToDatabase } from '../../../utils/mongodb';
+import jwt from 'jsonwebtoken';
+import { ObjectId } from 'mongodb';
 
 export default async function handler(
   req: NextApiRequest,
@@ -44,28 +27,45 @@ export default async function handler(
     }
 
     const token = authHeader.substring(7);
-    
-    // Decode mock token
+    const jwtSecret = process.env.NEXT_PUBLIC_JWT_SECRET;
+    if (!jwtSecret) {
+      console.error('JWT_SECRET is not defined');
+      return res.status(500).json({ success: false, error: 'Server configuration error' });
+    }
+
     try {
-      const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
-      const user = users.find((u) => u.id === decoded.userId);
+      const decoded = jwt.verify(token, jwtSecret) as { userId?: string };
+      if (!decoded || !decoded.userId) {
+        return res.status(401).json({ success: false, error: 'Invalid token' });
+      }
+
+      const { db } = await connectToDatabase();
+      // try id field first
+      let user = await db.collection('users').findOne({ id: decoded.userId });
+      if (!user) {
+        try {
+          user = await db.collection('users').findOne({ _id: new ObjectId(decoded.userId) });
+        } catch (e) {
+          // ignore
+        }
+      }
 
       if (!user) {
-        return res.status(404).json({
-          success: false,
-          error: 'User not found',
-        });
+        return res.status(404).json({ success: false, error: 'User not found' });
       }
 
       return res.status(200).json({
-        success: true,
-        data: user,
+        success: true, data: {
+          id: user._id?.toString() ?? user.id,
+          email: user.email,
+          fullName: user.fullName,
+          role: user.role,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        }
       });
     } catch (error) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid token',
-      });
+      return res.status(401).json({ success: false, error: 'Invalid token' });
     }
   } catch (error) {
     console.error('Get user error:', error);

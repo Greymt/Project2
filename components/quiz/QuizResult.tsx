@@ -15,6 +15,20 @@ import Link from 'next/link';
 import { apiGet } from '../../utils/api';
 import { QuizResult } from '../../types/quiz';
 
+const formatTime = (ms: number): string => {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (minutes === 0) {
+    return `${seconds} giây`;
+  } else if (seconds === 0) {
+    return `${minutes} phút`;
+  } else {
+    return `${minutes} phút ${seconds} giây`;
+  }
+};
+
 const QuizResultComponent: React.FC<{ resultId: string }> = ({ resultId }) => {
   const [result, setResult] = useState<QuizResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,7 +86,7 @@ const QuizResultComponent: React.FC<{ resultId: string }> = ({ resultId }) => {
               {percentage}%
             </Typography>
             <Typography variant="body1" gutterBottom>
-              Bạn trả lời đúng {result.answers.filter((a) => a.selectedAnswer).length}/{result.totalQuestions} câu
+              Bạn trả lời đúng {Math.round((result.score * result.totalQuestions) / 100)}/{result.totalQuestions} câu
             </Typography>
             <Typography variant="body2" color="textSecondary">
               {isPassed ? 'Bạn đã vượt qua bài thi!' : 'Bạn chưa đạt điểm yêu cầu. Hãy thử lại!'}
@@ -98,7 +112,7 @@ const QuizResultComponent: React.FC<{ resultId: string }> = ({ resultId }) => {
                   Thời gian làm bài
                 </Typography>
                 <Typography variant="h5">
-                  {Math.round((new Date(result.completedAt).getTime() - new Date(result.startedAt).getTime()) / 1000 / 60)} phút
+                  {formatTime(new Date(result.completedAt).getTime() - new Date(result.startedAt).getTime())}
                 </Typography>
               </CardContent>
             </Card>

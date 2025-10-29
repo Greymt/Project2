@@ -20,11 +20,15 @@
     "@mui/styles": "^5.11.2",
     "@mui/x-date-pickers": "^5.0.13",
     "@reduxjs/toolkit": "^1.9.1",
+    "bcrypt": "^6.0.0",
     "classnames": "^2.3.2",
+    "dotenv": "^17.2.3",
     "fs": "0.0.1-security",
     "isomorphic-fetch": "^3.0.0",
+    "jsonwebtoken": "^9.0.2",
     "lodash": "^4.17.21",
     "moment": "^2.29.4",
+    "mongodb": "^4.14.0",
     "next": "12.3.4",
     "next-redux-wrapper": "8.1.0",
     "notistack": "^2.0.8",
@@ -36,9 +40,11 @@
     "sharp": "^0.31.3"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/isomorphic-fetch": "^0.0.36",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^18.11.18",
-    "@types/react": "^18.0.14",
+    "@types/react": "^17.0.52",
     "@types/react-dom": "17.0.17",
     "css-loader": "1.0.0",
     "file-loader": "^6.2.0",
@@ -49,6 +55,6 @@
     "node-sass": "npm:sass",
     "sass-loader": "6.0.6",
     "style-loader": "3.3.1",
-    "typescript": "4.4.2"
+    "typescript": "4.9.5"
   }
 }
